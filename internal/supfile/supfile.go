@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // Supfile represents the Stack Up configuration YAML file.
@@ -34,19 +34,28 @@ type Network struct {
 	IdentityFile string // `yaml:"identity_file"`
 }
 
+// MapItem is an item in a MapSlice.
+type MapItem struct {
+	Key, Value any
+}
+
+// MapSlice encodes and decodes as a YAML map.
+// The order of keys is preserved when encoding and decoding.
+type MapSlice []MapItem
+
 // Networks is a list of user-defined networks
 type Networks struct {
 	Names []string
 	nets  map[string]Network
 }
 
-func (n *Networks) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (n *Networks) UnmarshalYAML(unmarshal func(any) error) error {
 	err := unmarshal(&n.nets)
 	if err != nil {
 		return err
 	}
 
-	var items yaml.MapSlice
+	var items MapSlice
 
 	var ok bool
 
@@ -94,13 +103,13 @@ type Commands struct {
 	cmds  map[string]Command
 }
 
-func (c *Commands) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *Commands) UnmarshalYAML(unmarshal func(any) error) error {
 	err := unmarshal(&c.cmds)
 	if err != nil {
 		return err
 	}
 
-	var items yaml.MapSlice
+	var items MapSlice
 
 	var ok bool
 
@@ -131,13 +140,13 @@ type Targets struct {
 	targets map[string][]string
 }
 
-func (t *Targets) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (t *Targets) UnmarshalYAML(unmarshal func(any) error) error {
 	err := unmarshal(&t.targets)
 	if err != nil {
 		return err
 	}
 
-	var items yaml.MapSlice
+	var items MapSlice
 
 	var ok bool
 
@@ -199,8 +208,8 @@ func (e EnvList) Slice() []string {
 	return envs
 }
 
-func (e *EnvList) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	items := []yaml.MapItem{}
+func (e *EnvList) UnmarshalYAML(unmarshal func(any) error) error {
+	items := []MapItem{}
 
 	err := unmarshal(&items)
 	if err != nil {
