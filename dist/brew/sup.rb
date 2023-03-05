@@ -14,8 +14,8 @@ class Sup < Formula
     ENV["GOPATH"] = buildpath
     ENV["GOHOME"] = buildpath
 
-    mkdir_p buildpath/"src/github.com/pressly/"
-    ln_sf buildpath, buildpath/"src/github.com/pressly/sup"
+    mkdir_p buildpath/"src/github.com/DTreshy/"
+    ln_sf buildpath, buildpath/"src/github.com/DTreshy/sup"
     Language::Go.stage_deps resources, buildpath/"src"
 
     system "go", "build", "-o", bin/"sup", "./cmd/sup"

@@ -5,13 +5,13 @@ Stack Up is a simple deployment tool that performs given set of commands on mult
 
 # Demo
 
-[![Sup](https://github.com/pressly/sup/blob/gif/asciinema.gif?raw=true)](https://asciinema.org/a/19742?autoplay=1)
+[![Sup](https://github.com/DTreshy/sup/blob/gif/asciinema.gif?raw=true)](https://asciinema.org/a/19742?autoplay=1)
 
 *Note: Demo is based on [this example Supfile](./example/Supfile).*
 
 # Installation
 
-    $ go get -u github.com/pressly/sup/cmd/sup
+    $ go get -u github.com/DTreshy/sup/cmd/sup
 
 # Usage
 
