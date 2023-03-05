@@ -2,9 +2,22 @@
 
 version: '3'
 
-vars:
+tasks:
   lint:
     desc: runs golangci-lint linter
     cmds:
       - golangci-lint run --timeout 5m ./...
     silent: true
+
+  build:
+    desc: builds sup binary
+    cmds:
+      - go build -o ./bin/sup ./cmd/sup
+    silent: true
+  
+  test:
+    desc: runs all tests
+    cmds:
+      - go test ./...
+    silent: true
+  
