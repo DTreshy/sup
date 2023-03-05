@@ -1,0 +1,23 @@
+stages:
+  - lint
+  - build
+  - test
+
+lint:
+  stage: lint
+  image: dtreshy/go-grpc:1.20.0-mk1
+  script:
+    - task lint
+
+build:
+  stage: build
+  image: dtreshy/go-grpc:1.20.0-mk1
+  script:
+    - task build
+
+test:
+  stage: test
+  image: dtreshy/go-grpc:1.20.0-mk1
+  script:
+    - task test
+    
