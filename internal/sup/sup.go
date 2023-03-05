@@ -11,17 +11,20 @@ import (
 	"github.com/goware/prefixer"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/DTreshy/sup/internal/supfile"
+	"github.com/DTreshy/sup/pkg/colors"
 )
 
 const VERSION = "0.5"
 
 type Stackup struct {
-	conf   *Supfile
+	conf   *supfile.Supfile
 	debug  bool
 	prefix bool
 }
 
-func New(conf *Supfile) (*Stackup, error) {
+func New(conf *supfile.Supfile) (*Stackup, error) {
 	return &Stackup{
 		conf: conf,
 	}, nil
@@ -31,7 +34,7 @@ func New(conf *Supfile) (*Stackup, error) {
 // TODO: This megamoth method needs a big refactor and should be split
 //
 //	to multiple smaller methods.
-func (sup *Stackup) Run(network *Network, envVars EnvList, commands ...*Command) error {
+func (sup *Stackup) Run(network *supfile.Network, envVars supfile.EnvList, commands ...*supfile.Command) error {
 	if len(commands) == 0 {
 		return errors.New("no commands to be run")
 	}
@@ -78,7 +81,7 @@ func (sup *Stackup) Run(network *Network, envVars EnvList, commands ...*Command)
 			remote := &SSHClient{
 				env:   env + `export SUP_HOST="` + host + `";`,
 				user:  network.User,
-				color: Colors[i%len(Colors)],
+				color: colors.Colors[i%len(colors.Colors)],
 			}
 
 			if bastion != nil {

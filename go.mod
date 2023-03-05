@@ -1,4 +1,4 @@
-module github.com/pressly/sup
+module github.com/DTreshy/sup
 
 go 1.13
 

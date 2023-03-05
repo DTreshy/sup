@@ -1,4 +1,4 @@
-package sup
+package colors
 
 var (
 	Colors = []string{
