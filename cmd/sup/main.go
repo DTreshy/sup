@@ -11,13 +11,14 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/DTreshy/sup/internal/sup"
+	"github.com/DTreshy/sup/internal/supfile"
 	"github.com/mikkeloscar/sshconfig"
 	"github.com/pkg/errors"
-	"github.com/pressly/sup"
 )
 
 var (
-	supfile       string
+	file          string
 	envVars       flagStringSlice
 	sshConfig     string
 	onlyHosts     string
@@ -47,7 +48,7 @@ func (f *flagStringSlice) Set(value string) error {
 }
 
 func init() {
-	flag.StringVar(&supfile, "f", "", "Custom path to ./Supfile[.yml]")
+	flag.StringVar(&file, "f", "", "Custom path to ./Supfile[.yml]")
 	flag.Var(&envVars, "e", "Set environment variables")
 	flag.Var(&envVars, "env", "Set environment variables")
 	flag.StringVar(&sshConfig, "sshconfig", "", "Read SSH Config file, ie. ~/.ssh/config file")
@@ -62,7 +63,7 @@ func init() {
 	flag.BoolVar(&showHelp, "help", false, "Show help")
 }
 
-func networkUsage(conf *sup.Supfile) {
+func networkUsage(conf *supfile.Supfile) {
 	w := &tabwriter.Writer{}
 
 	w.Init(os.Stderr, 4, 4, 2, ' ', 0)
@@ -85,7 +86,7 @@ func networkUsage(conf *sup.Supfile) {
 	fmt.Fprintln(w)
 }
 
-func cmdUsage(conf *sup.Supfile) {
+func cmdUsage(conf *supfile.Supfile) {
 	w := &tabwriter.Writer{}
 
 	w.Init(os.Stderr, 4, 4, 2, ' ', 0)
@@ -113,8 +114,8 @@ func cmdUsage(conf *sup.Supfile) {
 
 // parseArgs parses args and returns network and commands to be run.
 // On error, it prints usage and exits.
-func parseArgs(conf *sup.Supfile) (*sup.Network, []*sup.Command, error) {
-	var commands []*sup.Command
+func parseArgs(conf *supfile.Supfile) (*supfile.Network, []*supfile.Command, error) {
+	var commands []*supfile.Command
 
 	args := flag.Args()
 	if len(args) < 1 {
@@ -168,7 +169,7 @@ func parseArgs(conf *sup.Supfile) (*sup.Network, []*sup.Command, error) {
 
 	// In case of the network.Env needs an initialization
 	if network.Env == nil {
-		network.Env = make(sup.EnvList, 0)
+		network.Env = make(supfile.EnvList, 0)
 	}
 
 	// Add default env variable with current network
@@ -250,11 +251,11 @@ func main() {
 		return
 	}
 
-	if supfile == "" {
-		supfile = "./Supfile"
+	if file == "" {
+		file = "./Supfile"
 	}
 
-	data, err := os.ReadFile(resolvePath(supfile))
+	data, err := os.ReadFile(resolvePath(file))
 	if err != nil {
 		firstErr := err
 
@@ -266,7 +267,7 @@ func main() {
 		}
 	}
 
-	conf, err := sup.NewSupfile(data)
+	conf, err := supfile.NewSupfile(data)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -356,7 +357,7 @@ func main() {
 		}
 	}
 
-	var vars sup.EnvList
+	var vars supfile.EnvList
 
 	for _, val := range append(conf.Env, network.Env...) {
 		vars.Set(val.Key, val.Value)
@@ -368,7 +369,7 @@ func main() {
 	}
 
 	// Parse CLI --env flag env vars, define $SUP_ENV and override values defined in Supfile.
-	var cliVars sup.EnvList
+	var cliVars supfile.EnvList
 
 	for _, env := range envVars {
 		if env == "" {

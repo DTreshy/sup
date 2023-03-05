@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/user"
 
+	"github.com/DTreshy/sup/pkg/colors"
 	"github.com/pkg/errors"
 )
 
@@ -99,7 +100,7 @@ func (c *LocalhostClient) Stdout() io.Reader {
 
 func (c *LocalhostClient) Prefix() (prefix string, prefixLen int) {
 	host := c.user + "@localhost" + " | "
-	return ResetColor + host, len(host)
+	return colors.ResetColor + host, len(host)
 }
 
 func (c *LocalhostClient) Write(p []byte) (n int, err error) {

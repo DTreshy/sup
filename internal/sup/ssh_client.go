@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/DTreshy/sup/pkg/colors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -274,7 +275,7 @@ func (c *SSHClient) Stdout() io.Reader {
 
 func (c *SSHClient) Prefix() (prefix string, prefixLen int) {
 	host := c.user + "@" + c.host + " | "
-	return c.color + host + ResetColor, len(host)
+	return c.color + host + colors.ResetColor, len(host)
 }
 
 func (c *SSHClient) Write(p []byte) (n int, err error) {
