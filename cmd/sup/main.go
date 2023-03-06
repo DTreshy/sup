@@ -11,6 +11,9 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/DTreshy/sup/internal/command"
+	"github.com/DTreshy/sup/internal/envs"
+	"github.com/DTreshy/sup/internal/network"
 	"github.com/DTreshy/sup/internal/sup"
 	"github.com/DTreshy/sup/internal/supfile"
 	"github.com/mikkeloscar/sshconfig"
@@ -76,9 +79,9 @@ func networkUsage(conf *supfile.Supfile) {
 	for _, name := range conf.Networks.Names {
 		fmt.Fprintf(w, "- %v\n", name)
 
-		network, _ := conf.Networks.Get(name)
+		net, _ := conf.Networks.Get(name)
 
-		for _, host := range network.Hosts {
+		for _, host := range net.Hosts {
 			fmt.Fprintf(w, "\t- %v\n", host)
 		}
 	}
@@ -114,8 +117,8 @@ func cmdUsage(conf *supfile.Supfile) {
 
 // parseArgs parses args and returns network and commands to be run.
 // On error, it prints usage and exits.
-func parseArgs(conf *supfile.Supfile) (*supfile.Network, []*supfile.Command, error) {
-	var commands []*supfile.Command
+func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, error) {
+	var commands []*command.Command
 
 	args := flag.Args()
 	if len(args) < 1 {
@@ -124,7 +127,7 @@ func parseArgs(conf *supfile.Supfile) (*supfile.Network, []*supfile.Command, err
 	}
 
 	// Does the <network> exist?
-	network, ok := conf.Networks.Get(args[0])
+	net, ok := conf.Networks.Get(args[0])
 	if !ok {
 		networkUsage(conf)
 		return nil, nil, ErrUnknownNetwork
@@ -139,24 +142,24 @@ func parseArgs(conf *supfile.Supfile) (*supfile.Network, []*supfile.Command, err
 		i := strings.Index(env, "=")
 		if i < 0 {
 			if len(env) > 0 {
-				network.Env.Set(env, "")
+				net.Env.Set(env, "")
 			}
 
 			continue
 		}
 
-		network.Env.Set(env[:i], env[i+1:])
+		net.Env.Set(env[:i], env[i+1:])
 	}
 
-	hosts, err := network.ParseInventory()
+	hosts, err := net.ParseInventory()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	network.Hosts = append(network.Hosts, hosts...)
+	net.Hosts = append(net.Hosts, hosts...)
 
 	// Does the <network> have at least one host?
-	if len(network.Hosts) == 0 {
+	if len(net.Hosts) == 0 {
 		networkUsage(conf)
 		return nil, nil, ErrNetworkNoHosts
 	}
@@ -168,57 +171,57 @@ func parseArgs(conf *supfile.Supfile) (*supfile.Network, []*supfile.Command, err
 	}
 
 	// In case of the network.Env needs an initialization
-	if network.Env == nil {
-		network.Env = make(supfile.EnvList, 0)
+	if net.Env == nil {
+		net.Env = make(envs.EnvList, 0)
 	}
 
 	// Add default env variable with current network
-	network.Env.Set("SUP_NETWORK", args[0])
+	net.Env.Set("SUP_NETWORK", args[0])
 	// Add default nonce
-	network.Env.Set("SUP_TIME", time.Now().UTC().Format(time.RFC3339))
+	net.Env.Set("SUP_TIME", time.Now().UTC().Format(time.RFC3339))
 
 	if os.Getenv("SUP_TIME") != "" {
-		network.Env.Set("SUP_TIME", os.Getenv("SUP_TIME"))
+		net.Env.Set("SUP_TIME", os.Getenv("SUP_TIME"))
 	}
 
 	// Add user
 	if os.Getenv("SUP_USER") != "" {
-		network.Env.Set("SUP_USER", os.Getenv("SUP_USER"))
+		net.Env.Set("SUP_USER", os.Getenv("SUP_USER"))
 	} else {
-		network.Env.Set("SUP_USER", os.Getenv("USER"))
+		net.Env.Set("SUP_USER", os.Getenv("USER"))
 	}
 
-	for _, cmd := range args[1:] {
+	for _, name := range args[1:] {
 		// Target?
-		target, isTarget := conf.Targets.Get(cmd)
+		target, isTarget := conf.Targets.Get(name)
 		if isTarget {
 			// Loop over target's commands.
-			for _, cmd := range target {
-				command, isCommand := conf.Commands.Get(cmd)
+			for _, cmdName := range target {
+				cmd, isCommand := conf.Commands.Get(cmdName)
 				if !isCommand {
 					cmdUsage(conf)
-					return nil, nil, fmt.Errorf("%v: %v", ErrCmd, cmd)
+					return nil, nil, fmt.Errorf("%v: %v", ErrCmd, cmdName)
 				}
 
-				command.Name = cmd
-				commands = append(commands, &command)
+				cmd.Name = cmdName
+				commands = append(commands, &cmd)
 			}
 		}
 
 		// Command?
-		command, isCommand := conf.Commands.Get(cmd)
+		cmd, isCommand := conf.Commands.Get(name)
 		if isCommand {
-			command.Name = cmd
-			commands = append(commands, &command)
+			cmd.Name = name
+			commands = append(commands, &cmd)
 		}
 
 		if !isTarget && !isCommand {
 			cmdUsage(conf)
-			return nil, nil, fmt.Errorf("%v: %v", ErrCmd, cmd)
+			return nil, nil, fmt.Errorf("%v: %v", ErrCmd, name)
 		}
 	}
 
-	return &network, commands, nil
+	return &net, commands, nil
 }
 
 func resolvePath(path string) string {
@@ -274,7 +277,7 @@ func main() {
 	}
 
 	// Parse network and commands to be run from args.
-	network, commands, err := parseArgs(conf)
+	net, commands, err := parseArgs(conf)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -290,7 +293,7 @@ func main() {
 
 		var hosts []string
 
-		for _, host := range network.Hosts {
+		for _, host := range net.Hosts {
 			if expr.MatchString(host) {
 				hosts = append(hosts, host)
 			}
@@ -301,7 +304,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		network.Hosts = hosts
+		net.Hosts = hosts
 	}
 
 	// --except flag filters out hosts
@@ -314,7 +317,7 @@ func main() {
 
 		var hosts []string
 
-		for _, host := range network.Hosts {
+		for _, host := range net.Hosts {
 			if !expr.MatchString(host) {
 				hosts = append(hosts, host)
 			}
@@ -325,7 +328,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		network.Hosts = hosts
+		net.Hosts = hosts
 	}
 
 	// --sshconfig flag location for ssh_config file
@@ -347,19 +350,19 @@ func main() {
 		}
 
 		// check network.Hosts for match
-		for _, host := range network.Hosts {
+		for _, host := range net.Hosts {
 			conf, found := confMap[host]
 			if found {
-				network.User = conf.User
-				network.IdentityFile = resolvePath(conf.IdentityFile)
-				network.Hosts = []string{fmt.Sprintf("%s:%d", conf.HostName, conf.Port)}
+				net.User = conf.User
+				net.IdentityFile = resolvePath(conf.IdentityFile)
+				net.Hosts = []string{fmt.Sprintf("%s:%d", conf.HostName, conf.Port)}
 			}
 		}
 	}
 
-	var vars supfile.EnvList
+	var vars envs.EnvList
 
-	for _, val := range append(conf.Env, network.Env...) {
+	for _, val := range append(conf.Env, net.Env...) {
 		vars.Set(val.Key, val.Value)
 	}
 
@@ -369,7 +372,7 @@ func main() {
 	}
 
 	// Parse CLI --env flag env vars, define $SUP_ENV and override values defined in Supfile.
-	var cliVars supfile.EnvList
+	var cliVars envs.EnvList
 
 	for _, env := range envVars {
 		if env == "" {
@@ -410,7 +413,7 @@ func main() {
 	app.Prefix(!disablePrefix)
 
 	// Run all the commands in the given network.
-	err = app.Run(network, vars, commands...)
+	err = app.Run(net, vars, commands...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

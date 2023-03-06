@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/DTreshy/sup/internal/supfile"
+	"github.com/DTreshy/sup/internal/command"
 	"github.com/DTreshy/sup/pkg/remotetar"
 	"github.com/pkg/errors"
 )
@@ -18,7 +18,7 @@ type Task struct {
 	TTY     bool
 }
 
-func (sup *Stackup) createTasks(cmd *supfile.Command, clients []Client, env string) ([]*Task, error) {
+func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env string) ([]*Task, error) {
 	var tasks []*Task
 
 	cwd, err := os.Getwd()

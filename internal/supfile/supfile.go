@@ -1,289 +1,24 @@
 package supfile
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/DTreshy/sup/internal/command"
+	"github.com/DTreshy/sup/internal/envs"
+	"github.com/DTreshy/sup/internal/network"
+	"github.com/DTreshy/sup/internal/target"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Supfile represents the Stack Up configuration YAML file.
 type Supfile struct {
-	Networks Networks `yaml:"networks"`
-	Commands Commands `yaml:"commands"`
-	Targets  Targets  `yaml:"targets"`
-	Env      EnvList  `yaml:"env"`
-	Version  string   `yaml:"version"`
-}
-
-// Network is group of hosts with extra custom env vars.
-type Network struct {
-	Env       EnvList  `yaml:"env"`
-	Inventory string   `yaml:"inventory"`
-	Hosts     []string `yaml:"hosts"`
-	Bastion   string   `yaml:"bastion"` // Jump host for the environment
-
-	// Should these live on Hosts too? We'd have to change []string to struct, even in Supfile.
-	User         string // `yaml:"user"`
-	IdentityFile string // `yaml:"identity_file"`
-}
-
-// MapItem is an item in a MapSlice.
-type MapItem struct {
-	Key, Value any
-}
-
-// MapSlice encodes and decodes as a YAML map.
-// The order of keys is preserved when encoding and decoding.
-type MapSlice []MapItem
-
-// Networks is a list of user-defined networks
-type Networks struct {
-	Names []string
-	nets  map[string]Network
-}
-
-func (n *Networks) UnmarshalYAML(unmarshal func(any) error) error {
-	err := unmarshal(&n.nets)
-	if err != nil {
-		return err
-	}
-
-	var items MapSlice
-
-	var ok bool
-
-	err = unmarshal(&items)
-	if err != nil {
-		return err
-	}
-
-	n.Names = make([]string, len(items))
-
-	for i, item := range items {
-		n.Names[i], ok = item.Key.(string)
-		if !ok {
-			return fmt.Errorf("assertion to string failed")
-		}
-	}
-
-	return nil
-}
-
-func (n *Networks) Get(name string) (Network, bool) {
-	net, ok := n.nets[name]
-	return net, ok
-}
-
-// Command represents command(s) to be run remotely.
-type Command struct {
-	Name   string   `yaml:"-"`      // Command name.
-	Desc   string   `yaml:"desc"`   // Command description.
-	Local  string   `yaml:"local"`  // Command(s) to be run locally.
-	Run    string   `yaml:"run"`    // Command(s) to be run remotely.
-	Script string   `yaml:"script"` // Load command(s) from script and run it remotely.
-	Upload []Upload `yaml:"upload"` // See Upload struct.
-	Stdin  bool     `yaml:"stdin"`  // Attach localhost STDOUT to remote commands' STDIN?
-	Once   bool     `yaml:"once"`   // The command should be run "once" (on one host only).
-	Serial int      `yaml:"serial"` // Max number of clients processing a task in parallel.
-
-	// API backward compatibility. Will be deprecated in v1.0.
-	RunOnce bool `yaml:"run_once"` // The command should be run once only.
-}
-
-// Commands is a list of user-defined commands
-type Commands struct {
-	Names []string
-	cmds  map[string]Command
-}
-
-func (c *Commands) UnmarshalYAML(unmarshal func(any) error) error {
-	err := unmarshal(&c.cmds)
-	if err != nil {
-		return err
-	}
-
-	var items MapSlice
-
-	var ok bool
-
-	err = unmarshal(&items)
-	if err != nil {
-		return err
-	}
-
-	c.Names = make([]string, len(items))
-	for i, item := range items {
-		c.Names[i], ok = item.Key.(string)
-		if !ok {
-			return fmt.Errorf("assertion to string failed")
-		}
-	}
-
-	return nil
-}
-
-func (c *Commands) Get(name string) (Command, bool) {
-	cmd, ok := c.cmds[name]
-	return cmd, ok
-}
-
-// Targets is a list of user-defined targets
-type Targets struct {
-	Names   []string
-	targets map[string][]string
-}
-
-func (t *Targets) UnmarshalYAML(unmarshal func(any) error) error {
-	err := unmarshal(&t.targets)
-	if err != nil {
-		return err
-	}
-
-	var items MapSlice
-
-	var ok bool
-
-	err = unmarshal(&items)
-	if err != nil {
-		return err
-	}
-
-	t.Names = make([]string, len(items))
-	for i, item := range items {
-		t.Names[i], ok = item.Key.(string)
-		if !ok {
-			return fmt.Errorf("assertion to string failed")
-		}
-	}
-
-	return nil
-}
-
-func (t *Targets) Get(name string) ([]string, bool) {
-	cmds, ok := t.targets[name]
-	return cmds, ok
-}
-
-// Upload represents file copy operation from localhost Src path to Dst
-// path of every host in a given Network.
-type Upload struct {
-	Src string `yaml:"src"`
-	Dst string `yaml:"dst"`
-	Exc string `yaml:"exclude"`
-}
-
-// EnvVar represents an environment variable
-type EnvVar struct {
-	Key   string
-	Value string
-}
-
-func (e EnvVar) String() string {
-	return e.Key + `=` + e.Value
-}
-
-// AsExport returns the environment variable as a bash export statement
-func (e EnvVar) AsExport() string {
-	return `export ` + e.Key + `="` + e.Value + `";`
-}
-
-// EnvList is a list of environment variables that maps to a YAML map,
-// but maintains order, enabling late variables to reference early variables.
-type EnvList []*EnvVar
-
-func (e EnvList) Slice() []string {
-	envs := make([]string, len(e))
-
-	for i, env := range e {
-		envs[i] = env.String()
-	}
-
-	return envs
-}
-
-func (e *EnvList) UnmarshalYAML(unmarshal func(any) error) error {
-	items := []MapItem{}
-
-	err := unmarshal(&items)
-	if err != nil {
-		return err
-	}
-
-	*e = make(EnvList, 0, len(items))
-
-	for _, v := range items {
-		e.Set(fmt.Sprintf("%v", v.Key), fmt.Sprintf("%v", v.Value))
-	}
-
-	return nil
-}
-
-// Set key to be equal value in this list.
-func (e *EnvList) Set(key, value string) {
-	for i, v := range *e {
-		if v.Key == key {
-			(*e)[i].Value = value
-			return
-		}
-	}
-
-	*e = append(*e, &EnvVar{
-		Key:   key,
-		Value: value,
-	})
-}
-
-func (e *EnvList) ResolveValues() error {
-	if len(*e) == 0 {
-		return nil
-	}
-
-	exports := ""
-
-	for i, v := range *e {
-		exports += v.AsExport()
-
-		resolveValuesArgs := []string{
-			"-c",
-			exports + "echo -n " + v.Value + ";",
-		}
-		cmd := exec.Command("bash", resolveValuesArgs...)
-
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-
-		cmd.Dir = cwd
-
-		resolvedValue, err := cmd.Output()
-		if err != nil {
-			return errors.Wrapf(err, "resolving env var %v failed", v.Key)
-		}
-
-		(*e)[i].Value = string(resolvedValue)
-	}
-
-	return nil
-}
-
-func (e *EnvList) AsExport() string {
-	// Process all ENVs into a string of form
-	// `export FOO="bar"; export BAR="baz";`.
-	exports := ``
-
-	for _, v := range *e {
-		exports += v.AsExport() + " "
-	}
-
-	return exports
+	Networks network.Networks `yaml:"networks"`
+	Commands command.Commands `yaml:"commands"`
+	Targets  target.Targets   `yaml:"targets"`
+	Env      envs.EnvList     `yaml:"env"`
+	Version  string           `yaml:"version"`
 }
 
 type ErrMustUpdate struct {
@@ -317,7 +52,7 @@ func NewSupfile(data []byte) (*Supfile, error) {
 		fallthrough
 
 	case "0.1":
-		for _, cmd := range conf.Commands.cmds {
+		for _, cmd := range conf.Commands.Cmds {
 			if cmd.RunOnce {
 				return nil, ErrMustUpdate{"command.run_once is not supported in Supfile v" + conf.Version}
 			}
@@ -326,7 +61,7 @@ func NewSupfile(data []byte) (*Supfile, error) {
 		fallthrough
 
 	case "0.2":
-		for _, cmd := range conf.Commands.cmds {
+		for _, cmd := range conf.Commands.Cmds {
 			if cmd.Once {
 				return nil, ErrMustUpdate{"command.once is not supported in Supfile v" + conf.Version}
 			}
@@ -340,7 +75,7 @@ func NewSupfile(data []byte) (*Supfile, error) {
 			}
 		}
 
-		for _, network := range conf.Networks.nets {
+		for _, network := range conf.Networks.Nets {
 			if network.Inventory != "" {
 				return nil, ErrMustUpdate{"network.inventory is not supported in Supfile v" + conf.Version}
 			}
@@ -351,11 +86,11 @@ func NewSupfile(data []byte) (*Supfile, error) {
 	case "0.3":
 		var warning string
 
-		for key, cmd := range conf.Commands.cmds {
+		for key, cmd := range conf.Commands.Cmds {
 			if cmd.RunOnce {
 				warning = "Warning: command.run_once was deprecated by command.once in Supfile v" + conf.Version + "\n"
 				cmd.Once = true
-				conf.Commands.cmds[key] = cmd
+				conf.Commands.Cmds[key] = cmd
 			}
 		}
 
@@ -372,51 +107,4 @@ func NewSupfile(data []byte) (*Supfile, error) {
 	}
 
 	return &conf, nil
-}
-
-// ParseInventory runs the inventory command, if provided, and appends
-// the command's output lines to the manually defined list of hosts.
-func (n Network) ParseInventory() ([]string, error) {
-	if n.Inventory == "" {
-		return nil, nil
-	}
-
-	parseInventoryArgs := []string{
-		"-c",
-		n.Inventory,
-	}
-	cmd := exec.Command("/bin/sh", parseInventoryArgs...)
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, n.Env.Slice()...)
-	cmd.Stderr = os.Stderr
-
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	var hosts []string
-
-	buf := bytes.NewBuffer(output)
-
-	for {
-		host, err := buf.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return nil, err
-		}
-
-		host = strings.TrimSpace(host)
-		// skip empty lines and comments
-		if host == "" || host[:1] == "#" {
-			continue
-		}
-
-		hosts = append(hosts, host)
-	}
-
-	return hosts, nil
 }

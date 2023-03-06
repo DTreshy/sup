@@ -12,6 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/DTreshy/sup/internal/command"
+	"github.com/DTreshy/sup/internal/envs"
+	"github.com/DTreshy/sup/internal/network"
 	"github.com/DTreshy/sup/internal/supfile"
 	"github.com/DTreshy/sup/pkg/colors"
 )
@@ -34,7 +37,7 @@ func New(conf *supfile.Supfile) (*Stackup, error) {
 // TODO: This megamoth method needs a big refactor and should be split
 //
 //	to multiple smaller methods.
-func (sup *Stackup) Run(network *supfile.Network, envVars supfile.EnvList, commands ...*supfile.Command) error {
+func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...*command.Command) error {
 	if len(commands) == 0 {
 		return errors.New("no commands to be run")
 	}
@@ -44,19 +47,19 @@ func (sup *Stackup) Run(network *supfile.Network, envVars supfile.EnvList, comma
 	// Create clients for every host (either SSH or Localhost).
 	var bastion *SSHClient
 
-	if network.Bastion != "" {
+	if net.Bastion != "" {
 		bastion = &SSHClient{}
-		if err := bastion.Connect(network.Bastion); err != nil {
+		if err := bastion.Connect(net.Bastion); err != nil {
 			return errors.Wrap(err, "connecting to bastion failed")
 		}
 	}
 
 	var wg sync.WaitGroup
 
-	clientCh := make(chan Client, len(network.Hosts))
-	errCh := make(chan error, len(network.Hosts))
+	clientCh := make(chan Client, len(net.Hosts))
+	errCh := make(chan error, len(net.Hosts))
 
-	for i, host := range network.Hosts {
+	for i, host := range net.Hosts {
 		wg.Add(1)
 
 		go func(i int, host string) {
@@ -80,7 +83,7 @@ func (sup *Stackup) Run(network *supfile.Network, envVars supfile.EnvList, comma
 			// SSH client.
 			remote := &SSHClient{
 				env:   env + `export SUP_HOST="` + host + `";`,
-				user:  network.User,
+				user:  net.User,
 				color: colors.Colors[i%len(colors.Colors)],
 			}
 
