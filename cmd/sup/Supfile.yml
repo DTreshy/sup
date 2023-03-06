@@ -1,0 +1,24 @@
+# Supfile for "Example" Docker service
+---
+version: 0.4
+
+env:
+  # Environment variables for all commands
+  NAME: example
+  REPO: github.com/DTreshy/sup
+  BRANCH: master
+  IMAGE: DTreshy/example
+  HOST_PORT: 8000
+  CONTAINER_PORT: 8000
+
+networks:
+  # Groups of hosts
+  local:
+    hosts:
+      - server@31.11.149.199
+
+commands:
+  # Named set of commands to be run remotely
+  ping:
+    desc: Print uname and current date/time.
+    run: ls
