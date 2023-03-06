@@ -1,15 +1,10 @@
 package target
 
-import "fmt"
+import (
+	"fmt"
 
-// MapItem is an item in a MapSlice.
-type MapItem struct {
-	Key, Value any
-}
-
-// MapSlice encodes and decodes as a YAML map.
-// The order of keys is preserved when encoding and decoding.
-type MapSlice []MapItem
+	"github.com/DTreshy/sup/pkg/yamlparser"
+)
 
 // Targets is a list of user-defined targets
 type Targets struct {
@@ -23,11 +18,9 @@ func (t *Targets) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 
-	var items MapSlice
-
 	var ok bool
 
-	err = unmarshal(&items)
+	items, err := yamlparser.Unmarshal(unmarshal)
 	if err != nil {
 		return fmt.Errorf("cannot parse targets: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/DTreshy/sup/pkg/yamlparser"
 	"github.com/pkg/errors"
 )
 
@@ -13,15 +14,6 @@ type EnvVar struct {
 	Key   string
 	Value string
 }
-
-// MapItem is an item in a MapSlice.
-type MapItem struct {
-	Key, Value any
-}
-
-// MapSlice encodes and decodes as a YAML map.
-// The order of keys is preserved when encoding and decoding.
-type MapSlice []MapItem
 
 func (e EnvVar) String() string {
 	return e.Key + `=` + e.Value
@@ -47,13 +39,10 @@ func (e EnvList) Slice() []string {
 }
 
 func (e *EnvList) UnmarshalYAML(unmarshal func(any) error) error {
-	items := []MapItem{}
-
-	err := unmarshal(&items)
+	items, err := yamlparser.Unmarshal(unmarshal)
 	if err != nil {
-		return fmt.Errorf("cannot parse envs: %w", err)
+		return fmt.Errorf("cannot unmarshal envs: %w", err)
 	}
-
 	*e = make(EnvList, 0, len(items))
 
 	for _, v := range items {

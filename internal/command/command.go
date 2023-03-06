@@ -1,6 +1,10 @@
 package command
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/DTreshy/sup/pkg/yamlparser"
+)
 
 // Command represents command(s) to be run remotely.
 type Command struct {
@@ -32,29 +36,18 @@ type Commands struct {
 	Cmds  map[string]Command
 }
 
-// MapItem is an item in a MapSlice.
-type MapItem struct {
-	Key, Value any
-}
-
-// MapSlice encodes and decodes as a YAML map.
-// The order of keys is preserved when encoding and decoding.
-type MapSlice []MapItem
-
 func (c *Commands) UnmarshalYAML(unmarshal func(any) error) error {
 	err := unmarshal(&c.Cmds)
 	if err != nil {
 		return err
 	}
 
-	var items MapSlice
+	items, err := yamlparser.Unmarshal(unmarshal)
+	if err != nil {
+		return fmt.Errorf("cannot parse networks: %w", err)
+	}
 
 	var ok bool
-
-	err = unmarshal(&items)
-	if err != nil {
-		return fmt.Errorf("cannot parse cmds: %w", err)
-	}
 
 	c.Names = make([]string, len(items))
 	for i, item := range items {
