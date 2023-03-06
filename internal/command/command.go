@@ -3,7 +3,7 @@ package command
 import (
 	"fmt"
 
-	"github.com/DTreshy/sup/pkg/yamlparser"
+	"github.com/DTreshy/sup/pkg/unmarshaller"
 )
 
 // Command represents command(s) to be run remotely.
@@ -42,19 +42,17 @@ func (c *Commands) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 
-	items, err := yamlparser.Unmarshal(unmarshal)
+	items, err := unmarshaller.Unmarshal(unmarshal)
 	if err != nil {
 		return fmt.Errorf("cannot parse networks: %w", err)
 	}
 
-	var ok bool
-
 	c.Names = make([]string, len(items))
-	for i, item := range items {
-		c.Names[i], ok = item.Key.(string)
-		if !ok {
-			return fmt.Errorf("assertion to string failed")
-		}
+	i := 0
+
+	for key := range items {
+		c.Names[i] = key
+		i += 1
 	}
 
 	return nil

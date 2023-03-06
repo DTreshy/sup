@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/DTreshy/sup/internal/envs"
-	"github.com/DTreshy/sup/pkg/yamlparser"
+	"github.com/DTreshy/sup/pkg/unmarshaller"
 )
 
 // Network is group of hosts with extra custom env vars.
@@ -83,20 +83,17 @@ func (n *Networks) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 
-	var ok bool
-
-	items, err := yamlparser.Unmarshal(unmarshal)
+	items, err := unmarshaller.Unmarshal(unmarshal)
 	if err != nil {
 		return fmt.Errorf("cannot parse networks: %w", err)
 	}
 
 	n.Names = make([]string, len(items))
+	i := 0
 
-	for i, item := range items {
-		n.Names[i], ok = item.Key.(string)
-		if !ok {
-			return fmt.Errorf("assertion to string failed")
-		}
+	for key := range items {
+		n.Names[i] = key
+		i += 1
 	}
 
 	return nil

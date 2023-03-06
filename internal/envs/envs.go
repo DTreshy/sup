@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/DTreshy/sup/pkg/yamlparser"
+	"github.com/DTreshy/sup/pkg/unmarshaller"
 	"github.com/pkg/errors"
 )
 
@@ -39,14 +39,13 @@ func (e EnvList) Slice() []string {
 }
 
 func (e *EnvList) UnmarshalYAML(unmarshal func(any) error) error {
-	items, err := yamlparser.Unmarshal(unmarshal)
+	items, err := unmarshaller.Unmarshal(unmarshal)
 	if err != nil {
 		return fmt.Errorf("cannot unmarshal envs: %w", err)
 	}
-	*e = make(EnvList, 0, len(items))
 
-	for _, v := range items {
-		e.Set(fmt.Sprintf("%v", v.Key), fmt.Sprintf("%v", v.Value))
+	for key, val := range items {
+		e.Set(key, fmt.Sprintf("%v", val))
 	}
 
 	return nil
