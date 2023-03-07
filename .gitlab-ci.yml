@@ -9,6 +9,12 @@ lint:
   script:
     - task lint
 
+go_mod_check:
+  stage: lint
+  script:
+    - go mod tidy -v
+    - git diff --exit-code -- go.mod go.sum
+
 build:
   stage: build
   image: dtreshy/go-grpc:1.20.1-mk1
