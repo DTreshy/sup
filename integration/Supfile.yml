@@ -1,0 +1,13 @@
+# Supfile for "Example" Docker service
+---
+version: 0.4
+
+networks:
+  # Groups of hosts
+  local:
+    hosts:
+      - localhost
+
+commands:
+  ls:
+    run: ls
