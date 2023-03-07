@@ -2,14 +2,13 @@ package network
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/DTreshy/sup/internal/envs"
-	"github.com/DTreshy/sup/pkg/unmarshaller"
+	"github.com/DTreshy/sup/internal/flags"
 )
 
 // Network is group of hosts with extra custom env vars.
@@ -71,35 +70,20 @@ func (n Network) ParseInventory() ([]string, error) {
 	return hosts, nil
 }
 
-// Networks is a list of user-defined networks
-type Networks struct {
-	Names []string
-	Nets  map[string]Network
-}
+func (n *Network) SetEnvs(envs flags.FlagStringSlice) {
+	// Parse CLI --env flag env vars, override values defined in Network env.
+	for _, env := range envs {
+		if env == "" {
+			continue
+		}
 
-func (n *Networks) UnmarshalYAML(unmarshal func(any) error) error {
-	err := unmarshal(&n.Nets)
-	if err != nil {
-		return err
+		val := strings.SplitN(env, "=", 2)
+		if len(val) == 1 {
+			n.Env.Set(env, "")
+
+			continue
+		}
+
+		n.Env.Set(val[0], val[1])
 	}
-
-	items, err := unmarshaller.Unmarshal(unmarshal)
-	if err != nil {
-		return fmt.Errorf("cannot parse networks: %w", err)
-	}
-
-	n.Names = make([]string, len(items))
-	i := 0
-
-	for key := range items {
-		n.Names[i] = key
-		i += 1
-	}
-
-	return nil
-}
-
-func (n *Networks) Get(name string) (Network, bool) {
-	net, ok := n.Nets[name]
-	return net, ok
 }

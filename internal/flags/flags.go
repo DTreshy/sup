@@ -2,12 +2,11 @@ package flags
 
 import (
 	"flag"
-	"fmt"
 )
 
 type Flags struct {
 	File          string
-	EnvVars       flagStringSlice
+	EnvVars       FlagStringSlice
 	SshConfig     string
 	OnlyHosts     string
 	ExceptHosts   string
@@ -17,10 +16,8 @@ type Flags struct {
 	ShowHelp      bool
 }
 
-type flagStringSlice []string
-
 func New() *Flags {
-	var f *Flags
+	var f Flags
 
 	flag.StringVar(&f.File, "f", "", "Custom path to ./Supfile[.yml]")
 	flag.Var(&f.EnvVars, "e", "Set environment variables")
@@ -36,12 +33,9 @@ func New() *Flags {
 	flag.BoolVar(&f.ShowHelp, "h", false, "Show help")
 	flag.BoolVar(&f.ShowHelp, "help", false, "Show help")
 
-	return f
-}
-
-// Wrapper for flag Parse function
-func Parse() {
 	flag.Parse()
+
+	return &f
 }
 
 // Wrapper for flag Args function
@@ -52,13 +46,4 @@ func Args() []string {
 // Wrapper for flag PrintDefaults function
 func PrintDefaults() {
 	flag.PrintDefaults()
-}
-
-func (f *flagStringSlice) String() string {
-	return fmt.Sprintf("%v", *f)
-}
-
-func (f *flagStringSlice) Set(value string) error {
-	*f = append(*f, value)
-	return nil
 }
