@@ -4,25 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
+	"github.com/DTreshy/sup/internal/flags"
 	"github.com/DTreshy/sup/pkg/unmarshaller"
 	"github.com/pkg/errors"
 )
-
-// EnvVar represents an environment variable
-type EnvVar struct {
-	Key   string
-	Value string
-}
-
-func (e EnvVar) String() string {
-	return e.Key + `=` + e.Value
-}
-
-// AsExport returns the environment variable as a bash export statement
-func (e EnvVar) AsExport() string {
-	return `export ` + e.Key + `="` + e.Value + `";`
-}
 
 // EnvList is a list of environment variables that maps to a YAML map,
 // but maintains order, enabling late variables to reference early variables.
@@ -110,4 +97,43 @@ func (e *EnvList) AsExport() string {
 	}
 
 	return exports
+}
+
+func (e *EnvList) SetEnvs(envs flags.FlagStringSlice) error {
+	if err := e.ResolveValues(); err != nil {
+		return err
+	}
+
+	// Parse CLI --env flag env vars, define $SUP_ENV and override values defined in Supfile.
+	var cliVars EnvList
+
+	for _, env := range envs {
+		if env == "" {
+			continue
+		}
+
+		i := strings.Index(env, "=")
+		if i < 0 {
+			if len(env) > 0 {
+				e.Set(env, "")
+			}
+
+			continue
+		}
+
+		e.Set(env[:i], env[i+1:])
+		cliVars.Set(env[:i], env[i+1:])
+	}
+
+	// SUP_ENV is generated only from CLI env vars.
+	// Separate loop to omit duplicates.
+	supEnv := ""
+
+	for _, v := range cliVars {
+		supEnv += fmt.Sprintf(" -e %v=%q", v.Key, v.Value)
+	}
+
+	e.Set("SUP_ENV", strings.TrimSpace(supEnv))
+
+	return nil
 }

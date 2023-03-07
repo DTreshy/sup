@@ -3,6 +3,8 @@ package supfile
 import (
 	"fmt"
 	"os"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/DTreshy/sup/internal/command"
 	"github.com/DTreshy/sup/internal/envs"
@@ -107,4 +109,30 @@ func NewSupfile(data []byte) (*Supfile, error) {
 	}
 
 	return &conf, nil
+}
+
+func (s *Supfile) CmdUsage() {
+	w := &tabwriter.Writer{}
+
+	w.Init(os.Stderr, 4, 4, 2, ' ', 0)
+
+	defer w.Flush()
+
+	// Print available targets/commands.
+	fmt.Fprintln(w, "Targets:\t")
+
+	for _, name := range s.Targets.Names {
+		cmds, _ := s.Targets.Get(name)
+		fmt.Fprintf(w, "- %v\t%v\n", name, strings.Join(cmds, " "))
+	}
+
+	fmt.Fprintln(w, "\t")
+	fmt.Fprintln(w, "Commands:\t")
+
+	for _, name := range s.Commands.Names {
+		cmd, _ := s.Commands.Get(name)
+		fmt.Fprintf(w, "- %v\t%v\n", name, cmd.Desc)
+	}
+
+	fmt.Fprintln(w)
 }

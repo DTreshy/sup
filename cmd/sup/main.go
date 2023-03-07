@@ -6,7 +6,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -31,10 +30,6 @@ var (
 	flag *flags.Flags
 )
 
-func init() {
-	flag = flags.New()
-}
-
 func networkUsage(conf *supfile.Supfile) {
 	w := &tabwriter.Writer{}
 
@@ -58,32 +53,6 @@ func networkUsage(conf *supfile.Supfile) {
 	fmt.Fprintln(w)
 }
 
-func cmdUsage(conf *supfile.Supfile) {
-	w := &tabwriter.Writer{}
-
-	w.Init(os.Stderr, 4, 4, 2, ' ', 0)
-
-	defer w.Flush()
-
-	// Print available targets/commands.
-	fmt.Fprintln(w, "Targets:\t")
-
-	for _, name := range conf.Targets.Names {
-		cmds, _ := conf.Targets.Get(name)
-		fmt.Fprintf(w, "- %v\t%v\n", name, strings.Join(cmds, " "))
-	}
-
-	fmt.Fprintln(w, "\t")
-	fmt.Fprintln(w, "Commands:\t")
-
-	for _, name := range conf.Commands.Names {
-		cmd, _ := conf.Commands.Get(name)
-		fmt.Fprintf(w, "- %v\t%v\n", name, cmd.Desc)
-	}
-
-	fmt.Fprintln(w)
-}
-
 // parseArgs parses args and returns network and commands to be run.
 // On error, it prints usage and exits.
 func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, error) {
@@ -102,23 +71,7 @@ func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, err
 		return nil, nil, ErrUnknownNetwork
 	}
 
-	// Parse CLI --env flag env vars, override values defined in Network env.
-	for _, env := range flag.EnvVars {
-		if env == "" {
-			continue
-		}
-
-		i := strings.Index(env, "=")
-		if i < 0 {
-			if len(env) > 0 {
-				net.Env.Set(env, "")
-			}
-
-			continue
-		}
-
-		net.Env.Set(env[:i], env[i+1:])
-	}
+	net.SetEnvs(flag.EnvVars)
 
 	hosts, err := net.ParseInventory()
 	if err != nil {
@@ -135,7 +88,7 @@ func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, err
 
 	// Check for the second argument
 	if len(args) < 2 {
-		cmdUsage(conf)
+		conf.CmdUsage()
 		return nil, nil, ErrUsage
 	}
 
@@ -168,7 +121,7 @@ func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, err
 			for _, cmdName := range target {
 				cmd, isCommand := conf.Commands.Get(cmdName)
 				if !isCommand {
-					cmdUsage(conf)
+					conf.CmdUsage()
 					return nil, nil, fmt.Errorf("%v: %v", ErrCmd, cmdName)
 				}
 
@@ -185,7 +138,7 @@ func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, err
 		}
 
 		if !isTarget && !isCommand {
-			cmdUsage(conf)
+			conf.CmdUsage()
 			return nil, nil, fmt.Errorf("%v: %v", ErrCmd, name)
 		}
 	}
@@ -209,7 +162,7 @@ func resolvePath(path string) string {
 }
 
 func main() {
-	flags.Parse()
+	flag = flags.New()
 
 	if flag.ShowHelp {
 		fmt.Fprintln(os.Stderr, ErrUsage, "\n\nOptions:")
@@ -335,41 +288,10 @@ func main() {
 		vars.Set(val.Key, val.Value)
 	}
 
-	if err := vars.ResolveValues(); err != nil {
+	if err := vars.SetEnvs(flag.EnvVars); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	// Parse CLI --env flag env vars, define $SUP_ENV and override values defined in Supfile.
-	var cliVars envs.EnvList
-
-	for _, env := range flag.EnvVars {
-		if env == "" {
-			continue
-		}
-
-		i := strings.Index(env, "=")
-		if i < 0 {
-			if len(env) > 0 {
-				vars.Set(env, "")
-			}
-
-			continue
-		}
-
-		vars.Set(env[:i], env[i+1:])
-		cliVars.Set(env[:i], env[i+1:])
-	}
-
-	// SUP_ENV is generated only from CLI env vars.
-	// Separate loop to omit duplicates.
-	supEnv := ""
-
-	for _, v := range cliVars {
-		supEnv += fmt.Sprintf(" -e %v=%q", v.Key, v.Value)
-	}
-
-	vars.Set("SUP_ENV", strings.TrimSpace(supEnv))
 
 	// Create new Stackup app.
 	app, err := sup.New(conf)
