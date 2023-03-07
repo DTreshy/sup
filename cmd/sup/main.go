@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/user"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/DTreshy/sup/internal/command"
 	"github.com/DTreshy/sup/internal/envs"
+	"github.com/DTreshy/sup/internal/flags"
 	"github.com/DTreshy/sup/internal/network"
 	"github.com/DTreshy/sup/internal/sup"
 	"github.com/DTreshy/sup/internal/supfile"
@@ -21,49 +21,18 @@ import (
 )
 
 var (
-	file          string
-	envVars       flagStringSlice
-	sshConfig     string
-	onlyHosts     string
-	exceptHosts   string
-	debug         bool
-	disablePrefix bool
-	showVersion   bool
-	showHelp      bool
-
 	ErrUsage            = errors.New("Usage: sup [OPTIONS] NETWORK COMMAND [...]\n       sup [ --help | -v | --version ]")
 	ErrUnknownNetwork   = errors.New("Unknown network")
 	ErrNetworkNoHosts   = errors.New("No hosts defined for a given network")
 	ErrCmd              = errors.New("Unknown command/target")
 	ErrTargetNoCommands = errors.New("No commands defined for a given target")
 	ErrConfigFile       = errors.New("Unknown ssh_config file")
+
+	flag *flags.Flags
 )
 
-type flagStringSlice []string
-
-func (f *flagStringSlice) String() string {
-	return fmt.Sprintf("%v", *f)
-}
-
-func (f *flagStringSlice) Set(value string) error {
-	*f = append(*f, value)
-	return nil
-}
-
 func init() {
-	flag.StringVar(&file, "f", "", "Custom path to ./Supfile[.yml]")
-	flag.Var(&envVars, "e", "Set environment variables")
-	flag.Var(&envVars, "env", "Set environment variables")
-	flag.StringVar(&sshConfig, "sshconfig", "", "Read SSH Config file, ie. ~/.ssh/config file")
-	flag.StringVar(&onlyHosts, "only", "", "Filter hosts using regexp")
-	flag.StringVar(&exceptHosts, "except", "", "Filter out hosts using regexp")
-	flag.BoolVar(&debug, "D", false, "Enable debug mode")
-	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
-	flag.BoolVar(&disablePrefix, "disable-prefix", false, "Disable hostname prefix")
-	flag.BoolVar(&showVersion, "v", false, "Print version")
-	flag.BoolVar(&showVersion, "version", false, "Print version")
-	flag.BoolVar(&showHelp, "h", false, "Show help")
-	flag.BoolVar(&showHelp, "help", false, "Show help")
+	flag = flags.New()
 }
 
 func networkUsage(conf *supfile.Supfile) {
@@ -120,7 +89,7 @@ func cmdUsage(conf *supfile.Supfile) {
 func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, error) {
 	var commands []*command.Command
 
-	args := flag.Args()
+	args := flags.Args()
 	if len(args) < 1 {
 		networkUsage(conf)
 		return nil, nil, ErrUsage
@@ -134,7 +103,7 @@ func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, err
 	}
 
 	// Parse CLI --env flag env vars, override values defined in Network env.
-	for _, env := range envVars {
+	for _, env := range flag.EnvVars {
 		if env == "" {
 			continue
 		}
@@ -240,25 +209,25 @@ func resolvePath(path string) string {
 }
 
 func main() {
-	flag.Parse()
+	flags.Parse()
 
-	if showHelp {
+	if flag.ShowHelp {
 		fmt.Fprintln(os.Stderr, ErrUsage, "\n\nOptions:")
-		flag.PrintDefaults()
+		flags.PrintDefaults()
 
 		return
 	}
 
-	if showVersion {
+	if flag.ShowVersion {
 		fmt.Fprintln(os.Stderr, sup.VERSION)
 		return
 	}
 
-	if file == "" {
-		file = "./Supfile"
+	if flag.File == "" {
+		flag.File = "./Supfile"
 	}
 
-	data, err := os.ReadFile(resolvePath(file))
+	data, err := os.ReadFile(resolvePath(flag.File))
 	if err != nil {
 		firstErr := err
 
@@ -284,8 +253,8 @@ func main() {
 	}
 
 	// --only flag filters hosts
-	if onlyHosts != "" {
-		expr, err := regexp.CompilePOSIX(onlyHosts)
+	if flag.OnlyHosts != "" {
+		expr, err := regexp.CompilePOSIX(flag.OnlyHosts)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -300,7 +269,7 @@ func main() {
 		}
 
 		if len(hosts) == 0 {
-			fmt.Fprintln(os.Stderr, fmt.Errorf("no hosts match --only '%v' regexp", onlyHosts))
+			fmt.Fprintln(os.Stderr, fmt.Errorf("no hosts match --only '%v' regexp", flag.OnlyHosts))
 			os.Exit(1)
 		}
 
@@ -308,8 +277,8 @@ func main() {
 	}
 
 	// --except flag filters out hosts
-	if exceptHosts != "" {
-		expr, err := regexp.CompilePOSIX(exceptHosts)
+	if flag.ExceptHosts != "" {
+		expr, err := regexp.CompilePOSIX(flag.ExceptHosts)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -324,7 +293,7 @@ func main() {
 		}
 
 		if len(hosts) == 0 {
-			fmt.Fprintln(os.Stderr, fmt.Errorf("no hosts left after --except '%v' regexp", onlyHosts))
+			fmt.Fprintln(os.Stderr, fmt.Errorf("no hosts left after --except '%v' regexp", flag.OnlyHosts))
 			os.Exit(1)
 		}
 
@@ -332,8 +301,8 @@ func main() {
 	}
 
 	// --sshconfig flag location for ssh_config file
-	if sshConfig != "" {
-		confHosts, err := sshconfig.ParseSSHConfig(resolvePath(sshConfig))
+	if flag.SshConfig != "" {
+		confHosts, err := sshconfig.ParseSSHConfig(resolvePath(flag.SshConfig))
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -374,7 +343,7 @@ func main() {
 	// Parse CLI --env flag env vars, define $SUP_ENV and override values defined in Supfile.
 	var cliVars envs.EnvList
 
-	for _, env := range envVars {
+	for _, env := range flag.EnvVars {
 		if env == "" {
 			continue
 		}
@@ -409,8 +378,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	app.Debug(debug)
-	app.Prefix(!disablePrefix)
+	app.Debug(flag.Debug)
+	app.Prefix(!flag.DisablePrefix)
 
 	// Run all the commands in the given network.
 	err = app.Run(net, vars, commands...)
