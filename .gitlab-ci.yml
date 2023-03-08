@@ -3,7 +3,7 @@ stages:
   - build
   - test
 
-image: dtreshy/go-grpc:1.20.2-mk1
+image: dtreshy/go-grpc:1.20.2-mk2
 
 lint:
   stage: lint
@@ -20,9 +20,20 @@ build:
   stage: build
   script:
     - task build
+  artifacts:
+    paths:
+      - ./bin/sup
+
 
 test:
   stage: test
   script:
     - task test
+
+integration:
+  stage: test
+  needs:
+    - build
+  script:
+    - task integration
     

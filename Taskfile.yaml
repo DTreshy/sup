@@ -18,6 +18,12 @@ tasks:
   test:
     desc: runs all tests
     cmds:
-      - go test ./...
+      - go test $(go list ./... | grep -v ./integration) -race -coverprofile=coverage.out -timeout 2m
+    silent: true
+    
+  integration:
+    desc: runs integration tests
+    cmds:
+      - go test ./integration
     silent: true
   
