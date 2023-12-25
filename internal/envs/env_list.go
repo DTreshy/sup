@@ -1,6 +1,7 @@
 package envs
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/DTreshy/sup/internal/flags"
 	"github.com/DTreshy/sup/pkg/unmarshaller"
-	"github.com/pkg/errors"
 )
 
 // EnvList is a list of environment variables that maps to a YAML map,
@@ -78,7 +78,7 @@ func (e *EnvList) ResolveValues() error {
 
 		resolvedValue, err := cmd.Output()
 		if err != nil {
-			return errors.Wrapf(err, "resolving env var %v failed", v.Key)
+			return errors.Join(err, fmt.Errorf("resolving env var %s failed", v.Key))
 		}
 
 		(*e)[i].Value = string(resolvedValue)

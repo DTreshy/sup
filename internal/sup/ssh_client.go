@@ -1,6 +1,7 @@
 package sup
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -130,7 +131,7 @@ func (c *SSHClient) Connect(host string) error {
 // TODO: Split Signers to its own method.
 func (c *SSHClient) ConnectWith(host string, dialer SSHDialFunc) error {
 	if c.connOpened {
-		return fmt.Errorf("already connected")
+		return errors.New("already connected")
 	}
 
 	initAuthMethodOnce.Do(initAuthMethod)
@@ -161,11 +162,11 @@ func (c *SSHClient) ConnectWith(host string, dialer SSHDialFunc) error {
 // Run runs the task.Run command remotely on c.host.
 func (c *SSHClient) Run(task *Task) error {
 	if c.running {
-		return fmt.Errorf("session already running")
+		return errors.New("session already running")
 	}
 
 	if c.sessOpened {
-		return fmt.Errorf("session already connected")
+		return errors.New("session already connected")
 	}
 
 	sess, err := c.conn.NewSession()
@@ -217,7 +218,7 @@ func (c *SSHClient) Run(task *Task) error {
 // It closes the SSH session.
 func (c *SSHClient) Wait() error {
 	if !c.running {
-		return fmt.Errorf("trying to wait on stopped session")
+		return errors.New("trying to wait on stopped session")
 	}
 
 	err := c.sess.Wait()
@@ -251,7 +252,7 @@ func (c *SSHClient) Close() error {
 	}
 
 	if !c.connOpened {
-		return fmt.Errorf("trying to close the already closed connection")
+		return errors.New("trying to close the already closed connection")
 	}
 
 	err := c.conn.Close()
@@ -288,7 +289,7 @@ func (c *SSHClient) WriteClose() error {
 
 func (c *SSHClient) Signal(sig os.Signal) error {
 	if !c.sessOpened {
-		return fmt.Errorf("session is not open")
+		return errors.New("session is not open")
 	}
 
 	switch sig {
