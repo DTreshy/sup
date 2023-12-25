@@ -25,7 +25,7 @@ type Network struct {
 
 // ParseInventory runs the inventory command, if provided, and appends
 // the command's output lines to the manually defined list of hosts.
-func (n Network) ParseInventory() ([]string, error) {
+func (n Network) ParseInventory(envs *envs.EnvList) ([]string, error) {
 	if n.Inventory == "" {
 		return nil, nil
 	}
@@ -36,6 +36,7 @@ func (n Network) ParseInventory() ([]string, error) {
 	}
 	cmd := exec.Command("/bin/sh", parseInventoryArgs...)
 	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, envs.Slice()...)
 	cmd.Env = append(cmd.Env, n.Env.Slice()...)
 	cmd.Stderr = os.Stderr
 

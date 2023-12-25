@@ -73,7 +73,7 @@ func parseArgs(conf *supfile.Supfile) (*network.Network, []*command.Command, err
 
 	net.SetEnvs(flag.EnvVars)
 
-	hosts, err := net.ParseInventory()
+	hosts, err := net.ParseInventory(&conf.Env)
 	if err != nil {
 		return nil, nil, err
 	}
