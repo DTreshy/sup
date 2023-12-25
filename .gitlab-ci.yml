@@ -3,7 +3,7 @@ stages:
   - build
   - test
 
-image: dtreshy/go-grpc:1.20.2-mk2
+image: dtreshy/go-grpc:1.21.5-mk1
 
 lint:
   stage: lint

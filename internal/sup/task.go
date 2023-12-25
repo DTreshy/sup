@@ -18,6 +18,8 @@ type Task struct {
 	TTY     bool
 }
 
+var debugRun = "set -x;"
+
 func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env string) ([]*Task, error) {
 	var tasks []*Task
 
@@ -83,7 +85,7 @@ func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env stri
 			TTY: true,
 		}
 		if sup.debug {
-			task.Run = "set -x;" + task.Run
+			task.Run = debugRun + task.Run
 		}
 
 		if cmd.Stdin {
@@ -130,7 +132,7 @@ func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env stri
 		}
 
 		if sup.debug {
-			task.Run = "set -x;" + task.Run
+			task.Run = debugRun + task.Run
 		}
 
 		if cmd.Stdin {
@@ -147,7 +149,7 @@ func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env stri
 			TTY: true,
 		}
 		if sup.debug {
-			task.Run = "set -x;" + task.Run
+			task.Run = debugRun + task.Run
 		}
 
 		if cmd.Stdin {
