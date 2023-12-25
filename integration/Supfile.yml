@@ -1,6 +1,6 @@
 # Supfile for "Example" Docker service
 ---
-version: 0.4
+version: 1.0
 
 networks:
   # Groups of hosts
