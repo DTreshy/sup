@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -16,7 +17,6 @@ import (
 	"github.com/DTreshy/sup/internal/sup"
 	"github.com/DTreshy/sup/internal/supfile"
 	"github.com/mikkeloscar/sshconfig"
-	"github.com/pkg/errors"
 )
 
 var (

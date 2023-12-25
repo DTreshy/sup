@@ -7,17 +7,26 @@ image: dtreshy/go-grpc:1.21.5-mk1
 
 lint:
   stage: lint
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+      when: always
   script:
     - task lint
 
 go_mod_check:
   stage: lint
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+      when: always
   script:
     - go mod tidy -v
     - git diff --exit-code -- go.mod go.sum
 
 build:
   stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+      when: always
   script:
     - task build
   artifacts:
@@ -27,11 +36,17 @@ build:
 
 test:
   stage: test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+      when: always
   script:
     - task test
 
 integration:
   stage: test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+      when: always
   needs:
     - build
   script:

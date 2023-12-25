@@ -1,6 +1,7 @@
 package sup
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/goware/prefixer"
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/DTreshy/sup/internal/command"
@@ -50,7 +50,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 	if net.Bastion != "" {
 		bastion = &SSHClient{}
 		if err := bastion.Connect(net.Bastion); err != nil {
-			return errors.Wrap(err, "connecting to bastion failed")
+			return errors.Join(err, errors.New("connecting to bastion failed"))
 		}
 	}
 
@@ -71,7 +71,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 					env: env + `export SUP_HOST="` + host + `";`,
 				}
 				if err := local.Connect(host); err != nil {
-					errCh <- errors.Wrap(err, "connecting to localhost failed")
+					errCh <- errors.Join(err, errors.New("connecting to localhost failed"))
 					return
 				}
 
@@ -89,12 +89,12 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 
 			if bastion != nil {
 				if err := remote.ConnectWith(host, bastion.DialThrough); err != nil {
-					errCh <- errors.Wrap(err, "connecting to remote host through bastion failed")
+					errCh <- errors.Join(err, errors.New("connecting to remote host through bastion failed"))
 					return
 				}
 			} else {
 				if err := remote.Connect(host); err != nil {
-					errCh <- errors.Wrap(err, "connecting to remote host failed")
+					errCh <- errors.Join(err, errors.New("connecting to remote host failed"))
 					return
 				}
 			}
@@ -122,7 +122,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 	defer closeRemotes(clients)
 
 	for err := range errCh {
-		return errors.Wrap(err, "connecting to clients failed")
+		return errors.Join(err, errors.New("connecting to clients failed"))
 	}
 
 	// Run command or run multiple commands defined by target sequentially.
@@ -130,7 +130,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 		// Translate command into task(s).
 		tasks, err := sup.createTasks(cmd, clients, env)
 		if err != nil {
-			return errors.Wrap(err, "creating task failed")
+			return errors.Join(err, errors.New("creating task failed"))
 		}
 
 		// Run tasks sequentially.
@@ -156,7 +156,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 
 				err := c.Run(task)
 				if err != nil {
-					return errors.Wrap(err, prefix+"task failed")
+					return errors.Join(err, errors.New(prefix+"task failed"))
 				}
 
 				// Copy over tasks's STDOUT.
@@ -169,7 +169,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 					if err != nil && err != io.EOF {
 						// TODO: io.Copy() should not return io.EOF at all.
 						// Upstream bug? Or prefixer.WriteTo() bug?
-						fmt.Fprintf(os.Stderr, "%v", errors.Wrap(err, prefix+"reading STDOUT failed"))
+						fmt.Fprintf(os.Stderr, "%v", errors.Join(err, errors.New(prefix+"reading STDOUT failed")))
 					}
 				}(c)
 
@@ -181,7 +181,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 
 					_, err := io.Copy(os.Stderr, prefixer.New(c.Stderr(), prefix))
 					if err != nil && err != io.EOF {
-						fmt.Fprintf(os.Stderr, "%v", errors.Wrap(err, prefix+"reading STDERR failed"))
+						fmt.Fprintf(os.Stderr, "%v", errors.Join(err, errors.New(prefix+"reading STDERR failed")))
 					}
 				}(c)
 
@@ -195,7 +195,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 
 					_, err := io.Copy(writer, task.Input)
 					if err != nil && err != io.EOF {
-						fmt.Fprintf(os.Stderr, "%v", errors.Wrap(err, "copying STDIN failed"))
+						fmt.Fprintf(os.Stderr, "%v", errors.Join(err, errors.New("copying STDIN failed")))
 					}
 					// TODO: Use MultiWriteCloser (not in Stdlib), so we can writer.Close() instead?
 					for _, c := range clients {
@@ -219,7 +219,7 @@ func (sup *Stackup) Run(net *network.Network, envVars envs.EnvList, commands ...
 					for _, c := range task.Clients {
 						err := c.Signal(sig)
 						if err != nil {
-							fmt.Fprintf(os.Stderr, "%v", errors.Wrap(err, "sending signal failed"))
+							fmt.Fprintf(os.Stderr, "%v", errors.Join(err, errors.New("sending signal failed")))
 						}
 					}
 				}
