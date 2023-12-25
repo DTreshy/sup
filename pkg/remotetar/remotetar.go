@@ -1,12 +1,11 @@
 package remotetar
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Copying dirs/files over SSH using TAR.
@@ -46,11 +45,11 @@ func NewTarStreamReader(cwd, path, exclude string) (io.Reader, error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, errors.Wrap(err, "tar: stdout pipe failed")
+		return nil, errors.Join(err, errors.New("tar: stdout pipe failed"))
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, errors.Wrap(err, "tar: starting cmd failed")
+		return nil, errors.Join(err, errors.New("tar: starting cmd failed"))
 	}
 
 	return stdout, nil

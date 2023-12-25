@@ -1,13 +1,13 @@
 package sup
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/DTreshy/sup/internal/command"
 	"github.com/DTreshy/sup/pkg/remotetar"
-	"github.com/pkg/errors"
 )
 
 // Task represents a set of commands to be run.
@@ -25,19 +25,19 @@ func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env stri
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, errors.Wrap(err, "resolving CWD failed")
+		return nil, errors.Join(err, errors.New("resolving CWD failed"))
 	}
 
 	// Anything to upload?
 	for _, upload := range cmd.Upload {
 		uploadFile, err := ResolveLocalPath(cwd, upload.Src, env)
 		if err != nil {
-			return nil, errors.Wrap(err, "upload: "+upload.Src)
+			return nil, errors.Join(err, errors.New("upload: "+upload.Src))
 		}
 
 		uploadTarReader, err := remotetar.NewTarStreamReader(cwd, uploadFile, upload.Exc)
 		if err != nil {
-			return nil, errors.Wrap(err, "upload: "+upload.Src)
+			return nil, errors.Join(err, errors.New("upload: "+upload.Src))
 		}
 
 		task := Task{
@@ -72,12 +72,12 @@ func (sup *Stackup) createTasks(cmd *command.Command, clients []Client, env stri
 	if cmd.Script != "" {
 		f, err := os.Open(cmd.Script)
 		if err != nil {
-			return nil, errors.Wrap(err, "can't open script")
+			return nil, errors.Join(err, errors.New("can't open script"))
 		}
 
 		data, err := io.ReadAll(f)
 		if err != nil {
-			return nil, errors.Wrap(err, "can't read script")
+			return nil, errors.Join(err, errors.New("can't read script"))
 		}
 
 		task := Task{

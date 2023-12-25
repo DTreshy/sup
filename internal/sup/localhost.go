@@ -1,14 +1,13 @@
 package sup
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"os/user"
 
 	"github.com/DTreshy/sup/pkg/colors"
-	"github.com/pkg/errors"
 )
 
 // Client is a wrapper over the SSH connection/sessions.
@@ -37,7 +36,7 @@ func (c *LocalhostClient) Run(task *Task) error {
 	var err error
 
 	if c.running {
-		return fmt.Errorf("Command already running")
+		return errors.New("Command already running")
 	}
 
 	cmdArgs := []string{
@@ -73,7 +72,7 @@ func (c *LocalhostClient) Run(task *Task) error {
 
 func (c *LocalhostClient) Wait() error {
 	if !c.running {
-		return fmt.Errorf("trying to wait on stopped command")
+		return errors.New("trying to wait on stopped command")
 	}
 
 	err := c.cmd.Wait()
@@ -126,7 +125,7 @@ func ResolveLocalPath(cwd, path, env string) (string, error) {
 
 	resolvedFilename, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrap(err, "resolving path failed")
+		return "", errors.Join(err, errors.New("resolving path failed"))
 	}
 
 	return string(resolvedFilename), nil
